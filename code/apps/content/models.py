@@ -1,5 +1,7 @@
 from django.db import models
 from django.utils import timezone
+from django.core.exceptions import ValidationError
+from django.contrib.auth.models import AbstractUser
 # Create your models here.
 
 class Customer(models.Model):
@@ -50,12 +52,18 @@ class Cart(models.Model):
         return f"{self.customer} - {self.created_at}"
     
 
-    def add_product(self, product, quantity=1):
+    def add_to_cart(self, product, quantity=1):
+
+        if product.quantity - quantity < 0:
+            raise ValidationError("ნამეტანი ბევრი მოგივიდა, ძმა")
+        
         cart_item, created = CartItem.objects.get_or_create(
             product=product,
             cart=self,
             defaults={"quantity": quantity}
         )
+
+        product.quantity -= quantity
 
         if not created:
             cart_item.quantity += 1
@@ -64,7 +72,7 @@ class Cart(models.Model):
         return cart_item
     
     def get_total_price(self):
-        return sum(item.total_price() for item in self.items.all())
+        return sum(item.total_price() for item in self.cart_items.all())
 
 class CartItem(models.Model):
     product = models.ForeignKey(
@@ -79,6 +87,7 @@ class CartItem(models.Model):
         Cart,
         null=False,
         blank=False,
+        related_name="cart_items",
         on_delete=models.CASCADE,
     )
 
